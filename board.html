@@ -181,9 +181,83 @@
 
     .count-bar span { font-weight: bold; color: white; }
 
+    /* ── layout ── */
+    .content-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    /* ── messages panel ── */
+    .messages-panel {
+      background: #444;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 200px;
+    }
+
+    .messages-section {
+      background: #0e5c6b;
+      border: 2px solid #1a8a9e;
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .messages-title {
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .message-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .message-row:last-child { margin-bottom: 0; }
+
+    .msg-word {
+      flex: 1;
+      background: #083f4b;
+      border: 1px solid #0a5568;
+      border-radius: 4px;
+      color: #ddd;
+      font-size: 11px;
+      padding: 5px 7px;
+      outline: none;
+      font-family: Arial, sans-serif;
+    }
+
+    .msg-score {
+      width: 52px;
+      background: #083f4b;
+      border: 1px solid #0a5568;
+      border-radius: 4px;
+      color: #ddd;
+      font-size: 11px;
+      padding: 5px 7px;
+      outline: none;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+
+    .msg-word:focus, .msg-score:focus { border-color: #4cff88; }
+
     /* ── notes ── */
     .notes {
-      width: 754px;
+      width: 100%;
       padding: 8px 12px;
       background: #052830;
       border: 1px solid #1a8a9e;
@@ -271,9 +345,14 @@
 </head>
 <body>
 
-<div class="board" id="board"></div>
-<p class="note">Remember there's a max of 1 tough*/<span>red</span> letter in all 3</p>
-<textarea id="sharedNote" class="notes" placeholder="Notes..."></textarea>
+<div class="content-row">
+  <div class="left-col">
+    <div class="board" id="board"></div>
+    <p class="note">Remember there's a max of 1 tough*/<span>red</span> letter in all 3</p>
+    <textarea id="sharedNote" class="notes" placeholder="Notes..."></textarea>
+  </div>
+  <div class="messages-panel" id="messagesPanel"></div>
+</div>
 <button class="reset-btn" id="resetBtn">Reset</button>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -331,12 +410,20 @@
   let   note      = '';                           // shared note text
   const panelRefs = [];                           // { el, circleEls, btnMap } per panel
 
+  const emptyMsg  = () => ({ word: '', score: '' });
+  const msgData   = {
+    alien: Array.from({length: 4}, emptyMsg),
+    my:    Array.from({length: 4}, emptyMsg),
+  };
+  const msgRefs   = { alien: [], my: [] };        // { wordEl, scoreEl } per row
+
   // ── persistence ──────────────────────────────────────────────
   function saveState() {
     localStorage.setItem('amfts-board', JSON.stringify({
       states: states.map(m => Object.fromEntries(m)),
       order:  order.map(a => [...a]),
       note,
+      msgData,
     }));
   }
 
@@ -348,6 +435,11 @@
       data.states.forEach((obj, pi) => { states[pi] = new Map(Object.entries(obj)); });
       data.order.forEach((arr, pi)  => { order[pi]  = arr; });
       if (data.note) note = data.note;
+      if (data.msgData) {
+        ['alien', 'my'].forEach(key => {
+          data.msgData[key]?.forEach((m, i) => { msgData[key][i] = m; });
+        });
+      }
     } catch {}
   }
 
@@ -364,12 +456,19 @@
     const sn = document.getElementById('sharedNote');
     sn.value = note;
     autoResize(sn);
+    ['alien', 'my'].forEach(key => {
+      msgRefs[key].forEach(({ wordEl, scoreEl }, i) => {
+        wordEl.value  = msgData[key][i].word;
+        scoreEl.value = msgData[key][i].score;
+      });
+    });
   }
 
   function resetBoard() {
     states.forEach(m => m.clear());
     order.forEach((_, i) => { order[i] = []; });
     note = '';
+    ['alien', 'my'].forEach(key => msgData[key].forEach(m => { m.word = ''; m.score = ''; }));
     localStorage.removeItem('amfts-board');
     applyState();
   }
@@ -461,11 +560,45 @@
     return el;
   }
 
+  // ── build messages ────────────────────────────────────────────
+  function buildMessagesSection(title, key) {
+    const section = document.createElement('div');
+    section.className = 'messages-section';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'messages-title';
+    titleEl.textContent = title;
+    section.appendChild(titleEl);
+
+    for (let i = 0; i < 4; i++) {
+      const row = document.createElement('div');
+      row.className = 'message-row';
+
+      const wordEl  = document.createElement('input');
+      wordEl.type = 'text'; wordEl.className = 'msg-word'; wordEl.placeholder = 'Word';
+      wordEl.addEventListener('input', () => { msgData[key][i].word = wordEl.value; saveState(); });
+
+      const scoreEl = document.createElement('input');
+      scoreEl.type = 'text'; scoreEl.className = 'msg-score'; scoreEl.placeholder = 'Score';
+      scoreEl.addEventListener('input', () => { msgData[key][i].score = scoreEl.value; saveState(); });
+
+      row.append(wordEl, scoreEl);
+      section.appendChild(row);
+      msgRefs[key].push({ wordEl, scoreEl });
+    }
+
+    return section;
+  }
+
   // ── init ─────────────────────────────────────────────────────
   loadState();
 
   const board = document.getElementById('board');
   PANELS.forEach((panel, pi) => board.appendChild(buildPanel(panel, pi)));
+
+  const messagesPanel = document.getElementById('messagesPanel');
+  messagesPanel.appendChild(buildMessagesSection('Alien Messages', 'alien'));
+  messagesPanel.appendChild(buildMessagesSection('My Messages', 'my'));
 
   applyState();
 
