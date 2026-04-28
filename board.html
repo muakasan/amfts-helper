@@ -62,9 +62,7 @@
       color: #000;
     }
 
-    .circle.filled {
-      background: #ccc;
-    }
+    .circle.filled { background: #ccc; }
 
     /* ── info box ── */
     .info-box {
@@ -95,9 +93,9 @@
       color: #ddd;
     }
 
-    .panel-rules .green  { color: #4cff88; font-weight: bold; }
-    .panel-rules .red    { color: #ff5555; font-weight: bold; }
-    .panel-rules .muted  { color: #aaa; }
+    .panel-rules .green { color: #4cff88; font-weight: bold; }
+    .panel-rules .red   { color: #ff5555; font-weight: bold; }
+    .panel-rules .muted { color: #aaa; }
 
     /* ── letter grid ── */
     .letter-grid {
@@ -127,11 +125,10 @@
 
     .letter-btn:hover { transform: scale(1.12); }
 
-    .letter-btn.common { color: #4cff88; }
-    .letter-btn.tough  { color: #ff5555; }
-    .letter-btn.uncommon  { color: #ddd; }
+    .letter-btn.common   { color: #4cff88; }
+    .letter-btn.tough    { color: #ff5555; }
+    .letter-btn.uncommon { color: #ddd; }
 
-    /* selected state */
     .letter-btn.selected {
       background: rgba(255,255,255,0.15);
       border-color: currentColor;
@@ -146,10 +143,7 @@
       background: currentColor;
     }
 
-    /* crossed state */
-    .letter-btn.crossed {
-      opacity: 0.35;
-    }
+    .letter-btn.crossed { opacity: 0.35; }
 
     .letter-btn.crossed::before {
       content: '';
@@ -169,15 +163,94 @@
     }
 
     .count-bar span { font-weight: bold; color: white; }
+
+    /* ── reset button ── */
+    .reset-btn {
+      background: none;
+      border: 1px solid #555;
+      color: #888;
+      font-size: 12px;
+      padding: 6px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .reset-btn:hover {
+      border-color: #ff5555;
+      color: #ff5555;
+    }
+
+    /* ── modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 28px 32px;
+      text-align: center;
+      color: #ddd;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .modal-actions button {
+      padding: 8px 24px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid #555;
+      background: none;
+      color: #ddd;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .modal-actions button:hover { background: #2a2a2a; }
+
+    .modal-actions .btn-confirm {
+      border-color: #ff5555;
+      color: #ff5555;
+    }
+
+    .modal-actions .btn-confirm:hover { background: rgba(255,85,85,0.12); }
   </style>
 </head>
 <body>
 
 <div class="board" id="board"></div>
 <p class="note">Remember there's a max of 1 tough*/<span>red</span> letter in all 3</p>
+<button class="reset-btn" id="resetBtn">Reset</button>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <p>Reset the board?<br>All selections will be cleared.</p>
+    <div class="modal-actions">
+      <button id="modalCancel">Cancel</button>
+      <button class="btn-confirm" id="modalConfirm">Reset</button>
+    </div>
+  </div>
+</div>
 
 <script>
-  const TOUGH = new Set(['J','K','Q','V','X','Z']);
+  const TOUGH    = new Set(['J','K','Q','V','X','Z']);
   const UNCOMMON = new Set(['B','C','D','F','G','H','M','P','U','W','Y']);
 
   const LETTER_ROWS = [
@@ -212,35 +285,52 @@
       title: 'SUSPICION (−)',
       circles: 1,
       subtitle: 'NEGATIVE IF PRESENT',
-      rules: [
-        '1 random letter',
-      ],
+      rules: ['1 random letter'],
     },
   ];
 
-  // states[pi]: Map of letter -> 'selected' | 'crossed'
-  // order[pi]: ordered array of 'selected' letters (fills circles)
-  const states = PANELS.map(() => new Map());
-  const order  = PANELS.map(() => []);
+  const states    = PANELS.map(() => new Map()); // letter -> 'selected' | 'crossed'
+  const order     = PANELS.map(() => []);         // ordered selected letters per panel
+  const panelRefs = [];                           // { el, circleEls, btnMap } per panel
 
-  function buildInfoBox(panel) {
-    const box = document.createElement('div');
-    box.className = 'info-box';
-    const title = document.createElement('div');
-    title.className = 'panel-title';
-    title.textContent = panel.title;
-    const sub = document.createElement('div');
-    sub.className = 'panel-subtitle';
-    sub.textContent = panel.subtitle;
-    const rules = document.createElement('div');
-    rules.className = 'panel-rules';
-    rules.innerHTML = panel.rules.join('<br>');
-    box.appendChild(title);
-    box.appendChild(sub);
-    box.appendChild(rules);
-    return box;
+  // ── persistence ──────────────────────────────────────────────
+  function saveState() {
+    localStorage.setItem('amfts-board', JSON.stringify({
+      states: states.map(m => Object.fromEntries(m)),
+      order:  order.map(a => [...a]),
+    }));
   }
 
+  function loadState() {
+    try {
+      const raw = localStorage.getItem('amfts-board');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      data.states.forEach((obj, pi) => { states[pi] = new Map(Object.entries(obj)); });
+      data.order.forEach((arr, pi)  => { order[pi]  = arr; });
+    } catch {}
+  }
+
+  function applyState() {
+    panelRefs.forEach(({ el, circleEls, btnMap }, pi) => {
+      btnMap.forEach((btn, letter) => {
+        const base = TOUGH.has(letter) ? 'tough' : UNCOMMON.has(letter) ? 'uncommon' : 'common';
+        const s = states[pi].get(letter) ?? null;
+        btn.className = 'letter-btn ' + base + (s ? ' ' + s : '');
+      });
+      updateCircles(circleEls, order[pi]);
+      updateCount(el, pi);
+    });
+  }
+
+  function resetBoard() {
+    states.forEach(m => m.clear());
+    order.forEach((_, i) => { order[i] = []; });
+    localStorage.removeItem('amfts-board');
+    applyState();
+  }
+
+  // ── helpers ───────────────────────────────────────────────────
   function updateCircles(circleEls, letters) {
     circleEls.forEach((c, i) => {
       c.textContent = letters[i] ?? '';
@@ -248,14 +338,24 @@
     });
   }
 
-  function updateCount(panelEl, pi) {
-    const bar = panelEl.querySelector('.count-bar');
+  function updateCount(el, pi) {
+    const bar = el.querySelector('.count-bar');
     const s = order[pi];
     const common = s.filter(l => !TOUGH.has(l) && !UNCOMMON.has(l)).length;
     const tough  = s.filter(l =>  TOUGH.has(l)).length;
     bar.innerHTML = `selected: <span>${s.length}</span> &nbsp;|&nbsp; common: <span>${common}</span> &nbsp;|&nbsp; tough: <span>${tough}</span>`;
   }
 
+  function buildInfoBox(panel) {
+    const box   = document.createElement('div');  box.className = 'info-box';
+    const title = document.createElement('div');  title.className = 'panel-title';   title.textContent = panel.title;
+    const sub   = document.createElement('div');  sub.className = 'panel-subtitle';  sub.textContent = panel.subtitle;
+    const rules = document.createElement('div');  rules.className = 'panel-rules';   rules.innerHTML = panel.rules.join('<br>');
+    box.append(title, sub, rules);
+    return box;
+  }
+
+  // ── build panels ─────────────────────────────────────────────
   function buildPanel(panel, pi) {
     const el = document.createElement('div');
     el.className = 'panel';
@@ -272,40 +372,35 @@
     el.appendChild(circlesEl);
     el.appendChild(buildInfoBox(panel));
 
-    const grid = document.createElement('div');
+    const grid   = document.createElement('div');
     grid.className = 'letter-grid';
+    const btnMap = new Map();
 
     LETTER_ROWS.forEach(row => {
       row.forEach(letter => {
-        const btn = document.createElement('button');
-        const letterClass = TOUGH.has(letter) ? 'tough' : UNCOMMON.has(letter) ? 'uncommon' : 'common';
-        btn.className = 'letter-btn ' + letterClass;
+        const base = TOUGH.has(letter) ? 'tough' : UNCOMMON.has(letter) ? 'uncommon' : 'common';
+        const btn  = document.createElement('button');
+        btn.className = 'letter-btn ' + base;
         btn.dataset.letter = letter;
-
-        const lbl = document.createElement('span');
-        lbl.textContent = letter;
-        btn.appendChild(lbl);
+        btn.appendChild(Object.assign(document.createElement('span'), { textContent: letter }));
+        btnMap.set(letter, btn);
 
         btn.addEventListener('click', () => {
           const cur = states[pi].get(letter) ?? null;
           let next;
-          if (!cur) {
-            next = order[pi].length < panel.circles ? 'selected' : 'crossed';
-          } else if (cur === 'selected') {
-            next = 'crossed';
-          } else {
-            next = null;
-          }
+          if (!cur)              next = order[pi].length < panel.circles ? 'selected' : 'crossed';
+          else if (cur === 'selected') next = 'crossed';
+          else                   next = null;
 
-          if (cur === 'selected') order[pi].splice(order[pi].indexOf(letter), 1);
+          if (cur  === 'selected') order[pi].splice(order[pi].indexOf(letter), 1);
           if (next === 'selected') order[pi].push(letter);
-
           if (next) states[pi].set(letter, next);
-          else states[pi].delete(letter);
+          else      states[pi].delete(letter);
 
-          btn.className = 'letter-btn ' + letterClass + (next ? ' ' + next : '');
+          btn.className = 'letter-btn ' + base + (next ? ' ' + next : '');
           updateCircles(circleEls, order[pi]);
           updateCount(el, pi);
+          saveState();
         });
 
         grid.appendChild(btn);
@@ -313,17 +408,32 @@
     });
 
     el.appendChild(grid);
-
     const bar = document.createElement('div');
     bar.className = 'count-bar';
     el.appendChild(bar);
-    updateCount(el, pi);
 
+    panelRefs.push({ el, circleEls, btnMap });
     return el;
   }
 
+  // ── init ─────────────────────────────────────────────────────
+  loadState();
+
   const board = document.getElementById('board');
   PANELS.forEach((panel, pi) => board.appendChild(buildPanel(panel, pi)));
+
+  applyState();
+
+  // ── modal / reset ─────────────────────────────────────────────
+  const overlay = document.getElementById('modalOverlay');
+
+  document.getElementById('resetBtn').addEventListener('click', () => overlay.classList.add('visible'));
+  document.getElementById('modalCancel').addEventListener('click', () => overlay.classList.remove('visible'));
+  document.getElementById('modalConfirm').addEventListener('click', () => {
+    overlay.classList.remove('visible');
+    resetBoard();
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('visible'); });
 </script>
 </body>
 </html>
