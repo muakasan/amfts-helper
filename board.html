@@ -54,6 +54,16 @@
       height: 32px;
       border-radius: 50%;
       background: #888;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: #000;
+    }
+
+    .circle.filled {
+      background: #ccc;
     }
 
     /* ── info box ── */
@@ -119,13 +129,7 @@
 
     .letter-btn.common { color: #4cff88; }
     .letter-btn.tough  { color: #ff5555; }
-
-    .tough-marker {
-      font-size: 7px;
-      line-height: 1;
-      color: inherit;
-      opacity: 0.8;
-    }
+    .letter-btn.uncommon  { color: #ddd; }
 
     /* selected state */
     .letter-btn.selected {
@@ -160,6 +164,7 @@
 
 <script>
   const TOUGH = new Set(['J','K','Q','V','X','Z']);
+  const UNCOMMON = new Set(['B','C','D','F','G','H','M','P','U','W','Y']);
 
   const LETTER_ROWS = [
     ['A','B','C','D','E','F','G'],
@@ -199,8 +204,8 @@
     },
   ];
 
-  // selected[panelIndex] = Set of selected letters
-  const selected = PANELS.map(() => new Set());
+  // selected[panelIndex] = ordered array of selected letters (length <= panel.circles)
+  const selected = PANELS.map(() => []);
 
   function buildInfoBox(panel) {
     const box = document.createElement('div');
@@ -220,25 +225,35 @@
     return box;
   }
 
+  function updateCircles(circleEls, letters) {
+    circleEls.forEach((c, i) => {
+      c.textContent = letters[i] ?? '';
+      c.classList.toggle('filled', i < letters.length);
+    });
+  }
+
   function updateCount(panelEl, pi) {
     const bar = panelEl.querySelector('.count-bar');
     const s = selected[pi];
-    const common = [...s].filter(l => !TOUGH.has(l)).length;
-    const tough  = [...s].filter(l =>  TOUGH.has(l)).length;
-    bar.innerHTML = `selected: <span>${s.size}</span> &nbsp;|&nbsp; common: <span>${common}</span> &nbsp;|&nbsp; tough: <span>${tough}</span>`;
+    const common = s.filter(l => !TOUGH.has(l)).length;
+    const tough  = s.filter(l =>  TOUGH.has(l)).length;
+    bar.innerHTML = `selected: <span>${s.length}</span> &nbsp;|&nbsp; common: <span>${common}</span> &nbsp;|&nbsp; tough: <span>${tough}</span>`;
   }
 
   function buildPanel(panel, pi) {
     const el = document.createElement('div');
     el.className = 'panel';
-    const circles = document.createElement('div');
-    circles.className = 'circles';
+
+    const circlesEl = document.createElement('div');
+    circlesEl.className = 'circles';
+    const circleEls = [];
     for (let i = 0; i < panel.circles; i++) {
       const c = document.createElement('div');
       c.className = 'circle';
-      circles.appendChild(c);
+      circlesEl.appendChild(c);
+      circleEls.push(c);
     }
-    el.appendChild(circles);
+    el.appendChild(circlesEl);
     el.appendChild(buildInfoBox(panel));
 
     const grid = document.createElement('div');
@@ -247,28 +262,24 @@
     LETTER_ROWS.forEach(row => {
       row.forEach(letter => {
         const btn = document.createElement('button');
-        btn.className = 'letter-btn ' + (TOUGH.has(letter) ? 'tough' : 'common');
+        const letterClass = TOUGH.has(letter) ? 'tough' : UNCOMMON.has(letter) ? 'uncommon' : 'common';
+        btn.className = 'letter-btn ' + letterClass;
         btn.dataset.letter = letter;
 
         const lbl = document.createElement('span');
         lbl.textContent = letter;
         btn.appendChild(lbl);
 
-        if (TOUGH.has(letter)) {
-          const mark = document.createElement('span');
-          mark.className = 'tough-marker';
-          mark.textContent = '*';
-          btn.appendChild(mark);
-        }
-
         btn.addEventListener('click', () => {
-          if (selected[pi].has(letter)) {
-            selected[pi].delete(letter);
+          const idx = selected[pi].indexOf(letter);
+          if (idx !== -1) {
+            selected[pi].splice(idx, 1);
             btn.classList.remove('selected');
-          } else {
-            selected[pi].add(letter);
+          } else if (selected[pi].length < panel.circles) {
+            selected[pi].push(letter);
             btn.classList.add('selected');
           }
+          updateCircles(circleEls, selected[pi]);
           updateCount(el, pi);
         });
 
