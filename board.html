@@ -29,7 +29,7 @@
       display: flex;
       gap: 14px;
       padding: 28px;
-      background: #1e1208;
+      background: #444;
       border-radius: 16px;
     }
 
@@ -41,49 +41,19 @@
       border: 2px solid #1a8a9e;
     }
 
-    /* ── hardware strip at top ── */
-    .hardware {
+    /* ── circles ── */
+    .circles {
       display: flex;
-      align-items: center;
+      justify-content: center;
       gap: 8px;
       margin-bottom: 10px;
-      padding: 6px 4px;
     }
 
-    .knob {
-      width: 34px;
-      height: 34px;
+    .circle {
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #c0c0c0, #555);
-      border: 2px solid #888;
-      flex-shrink: 0;
-    }
-
-    .slider-track {
-      flex: 1;
-      height: 8px;
-      background: #07353e;
-      border-radius: 4px;
-      position: relative;
-      border: 1px solid #1a8a9e;
-    }
-
-    .slider-thumb {
-      position: absolute;
-      top: -4px;
-      left: 40%;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #ccc;
-      border: 1px solid #888;
-    }
-
-    .led {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4cff88;
+      background: #888;
     }
 
     /* ── info box ── */
@@ -201,6 +171,7 @@
   const PANELS = [
     {
       title: 'TRUST +1',
+      circles: 3,
       subtitle: '+1 FOR EACH PRESENT',
       rules: [
         '1 common (<span class="green">green</span>)',
@@ -210,6 +181,7 @@
     },
     {
       title: 'AMPLIFY ×2',
+      circles: 2,
       subtitle: '×2 FOR EACH PRESENT',
       rules: [
         '1 common (<span class="green">green</span>)',
@@ -219,6 +191,7 @@
     },
     {
       title: 'SUSPICION (−)',
+      circles: 1,
       subtitle: 'NEGATIVE IF PRESENT',
       rules: [
         '1 random letter',
@@ -228,29 +201,6 @@
 
   // selected[panelIndex] = Set of selected letters
   const selected = PANELS.map(() => new Set());
-
-  function buildKnob() {
-    const d = document.createElement('div');
-    d.className = 'knob';
-    return d;
-  }
-
-  function buildHardware() {
-    const hw = document.createElement('div');
-    hw.className = 'hardware';
-    hw.appendChild(buildKnob());
-    const track = document.createElement('div');
-    track.className = 'slider-track';
-    const thumb = document.createElement('div');
-    thumb.className = 'slider-thumb';
-    track.appendChild(thumb);
-    hw.appendChild(track);
-    const led = document.createElement('div');
-    led.className = 'led';
-    hw.appendChild(led);
-    hw.appendChild(buildKnob());
-    return hw;
-  }
 
   function buildInfoBox(panel) {
     const box = document.createElement('div');
@@ -281,7 +231,14 @@
   function buildPanel(panel, pi) {
     const el = document.createElement('div');
     el.className = 'panel';
-    el.appendChild(buildHardware());
+    const circles = document.createElement('div');
+    circles.className = 'circles';
+    for (let i = 0; i < panel.circles; i++) {
+      const c = document.createElement('div');
+      c.className = 'circle';
+      circles.appendChild(c);
+    }
+    el.appendChild(circles);
     el.appendChild(buildInfoBox(panel));
 
     const grid = document.createElement('div');
