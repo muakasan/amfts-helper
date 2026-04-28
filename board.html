@@ -154,6 +154,22 @@
       border-radius: 1px;
     }
 
+    /* candidate state */
+    .letter-btn.candidate {
+      border-color: currentColor;
+      border-style: dashed;
+    }
+
+    .letter-btn.candidate::after {
+      content: '*';
+      position: absolute;
+      top: 1px;
+      right: 3px;
+      font-size: 8px;
+      color: currentColor;
+      font-weight: 900;
+    }
+
     /* ── count bar ── */
     .count-bar {
       margin-top: 8px;
@@ -388,9 +404,10 @@
         btn.addEventListener('click', () => {
           const cur = states[pi].get(letter) ?? null;
           let next;
-          if (!cur)              next = order[pi].length < panel.circles ? 'selected' : 'crossed';
+          if (!cur)                    next = order[pi].length < panel.circles ? 'selected' : 'crossed';
           else if (cur === 'selected') next = 'crossed';
-          else                   next = null;
+          else if (cur === 'crossed')  next = 'candidate';
+          else                         next = null;
 
           if (cur  === 'selected') order[pi].splice(order[pi].indexOf(letter), 1);
           if (next === 'selected') order[pi].push(letter);
