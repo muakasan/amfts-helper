@@ -181,6 +181,25 @@
 
     .count-bar span { font-weight: bold; color: white; }
 
+    /* ── notes ── */
+    .notes {
+      width: 754px;
+      padding: 8px 12px;
+      background: #052830;
+      border: 1px solid #1a8a9e;
+      border-radius: 8px;
+      color: #ddd;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+      resize: none;
+      min-height: 40px;
+      overflow: hidden;
+      outline: none;
+    }
+
+    .notes::placeholder { color: #456; }
+    .notes:focus { border-color: #4cff88; }
+
     /* ── reset button ── */
     .reset-btn {
       background: none;
@@ -254,6 +273,7 @@
 
 <div class="board" id="board"></div>
 <p class="note">Remember there's a max of 1 tough*/<span>red</span> letter in all 3</p>
+<textarea id="sharedNote" class="notes" placeholder="Notes..."></textarea>
 <button class="reset-btn" id="resetBtn">Reset</button>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -308,6 +328,7 @@
 
   const states    = PANELS.map(() => new Map()); // letter -> 'selected' | 'crossed'
   const order     = PANELS.map(() => []);         // ordered selected letters per panel
+  let   note      = '';                           // shared note text
   const panelRefs = [];                           // { el, circleEls, btnMap } per panel
 
   // ── persistence ──────────────────────────────────────────────
@@ -315,6 +336,7 @@
     localStorage.setItem('amfts-board', JSON.stringify({
       states: states.map(m => Object.fromEntries(m)),
       order:  order.map(a => [...a]),
+      note,
     }));
   }
 
@@ -325,6 +347,7 @@
       const data = JSON.parse(raw);
       data.states.forEach((obj, pi) => { states[pi] = new Map(Object.entries(obj)); });
       data.order.forEach((arr, pi)  => { order[pi]  = arr; });
+      if (data.note) note = data.note;
     } catch {}
   }
 
@@ -338,11 +361,15 @@
       updateCircles(circleEls, order[pi]);
       updateCount(el, pi);
     });
+    const sn = document.getElementById('sharedNote');
+    sn.value = note;
+    autoResize(sn);
   }
 
   function resetBoard() {
     states.forEach(m => m.clear());
     order.forEach((_, i) => { order[i] = []; });
+    note = '';
     localStorage.removeItem('amfts-board');
     applyState();
   }
@@ -443,6 +470,19 @@
   applyState();
 
   // ── modal / reset ─────────────────────────────────────────────
+  const sharedNote = document.getElementById('sharedNote');
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  sharedNote.addEventListener('input', e => {
+    note = e.target.value;
+    autoResize(e.target);
+    saveState();
+  });
+
   const overlay = document.getElementById('modalOverlay');
 
   document.getElementById('resetBtn').addEventListener('click', () => overlay.classList.add('visible'));
