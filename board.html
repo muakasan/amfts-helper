@@ -146,6 +146,20 @@
       background: currentColor;
     }
 
+    /* crossed state */
+    .letter-btn.crossed {
+      opacity: 0.35;
+    }
+
+    .letter-btn.crossed::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-top: 2px solid currentColor;
+      transform: rotate(45deg);
+      border-radius: 1px;
+    }
+
     /* ── count bar ── */
     .count-bar {
       margin-top: 8px;
@@ -204,8 +218,10 @@
     },
   ];
 
-  // selected[panelIndex] = ordered array of selected letters (length <= panel.circles)
-  const selected = PANELS.map(() => []);
+  // states[pi]: Map of letter -> 'selected' | 'crossed'
+  // order[pi]: ordered array of 'selected' letters (fills circles)
+  const states = PANELS.map(() => new Map());
+  const order  = PANELS.map(() => []);
 
   function buildInfoBox(panel) {
     const box = document.createElement('div');
@@ -234,8 +250,8 @@
 
   function updateCount(panelEl, pi) {
     const bar = panelEl.querySelector('.count-bar');
-    const s = selected[pi];
-    const common = s.filter(l => !TOUGH.has(l)).length;
+    const s = order[pi];
+    const common = s.filter(l => !TOUGH.has(l) && !UNCOMMON.has(l)).length;
     const tough  = s.filter(l =>  TOUGH.has(l)).length;
     bar.innerHTML = `selected: <span>${s.length}</span> &nbsp;|&nbsp; common: <span>${common}</span> &nbsp;|&nbsp; tough: <span>${tough}</span>`;
   }
@@ -271,15 +287,24 @@
         btn.appendChild(lbl);
 
         btn.addEventListener('click', () => {
-          const idx = selected[pi].indexOf(letter);
-          if (idx !== -1) {
-            selected[pi].splice(idx, 1);
-            btn.classList.remove('selected');
-          } else if (selected[pi].length < panel.circles) {
-            selected[pi].push(letter);
-            btn.classList.add('selected');
+          const cur = states[pi].get(letter) ?? null;
+          let next;
+          if (!cur) {
+            next = order[pi].length < panel.circles ? 'selected' : 'crossed';
+          } else if (cur === 'selected') {
+            next = 'crossed';
+          } else {
+            next = null;
           }
-          updateCircles(circleEls, selected[pi]);
+
+          if (cur === 'selected') order[pi].splice(order[pi].indexOf(letter), 1);
+          if (next === 'selected') order[pi].push(letter);
+
+          if (next) states[pi].set(letter, next);
+          else states[pi].delete(letter);
+
+          btn.className = 'letter-btn ' + letterClass + (next ? ' ' + next : '');
+          updateCircles(circleEls, order[pi]);
           updateCount(el, pi);
         });
 
