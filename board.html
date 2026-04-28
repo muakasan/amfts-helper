@@ -8,13 +8,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #2e1e10;
+      background: #000;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      gap: 16px;
       min-height: 100vh;
       font-family: Arial, sans-serif;
     }
+
+    .note {
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    .note span { color: #ff5555; font-weight: bold; }
 
     .board {
       display: flex;
@@ -22,7 +31,6 @@
       padding: 28px;
       background: #1e1208;
       border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     }
 
     .panel {
@@ -76,7 +84,6 @@
       height: 8px;
       border-radius: 50%;
       background: #4cff88;
-      box-shadow: 0 0 6px #4cff88;
     }
 
     /* ── info box ── */
@@ -154,7 +161,6 @@
     .letter-btn.selected {
       background: rgba(255,255,255,0.15);
       border-color: currentColor;
-      box-shadow: 0 0 6px currentColor;
     }
 
     .letter-btn.selected::after {
@@ -180,6 +186,7 @@
 <body>
 
 <div class="board" id="board"></div>
+<p class="note">Remember there's a max of 1 tough*/<span>red</span> letter in all 3</p>
 
 <script>
   const TOUGH = new Set(['J','K','Q','V','X','Z']);
